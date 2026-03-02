@@ -1,0 +1,23 @@
+# Kein PHP in Uploads ausführen
+<FilesMatch "\.ph(p[3-8]?|tml)$">
+    Require all denied
+</FilesMatch>
+
+# Falls mod_php: Engine aus
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+# Kein Directory Listing
+Options -Indexes
+
+# Nur erlaubte Dateitypen ausliefern
+<FilesMatch "\.(?!(mp3|pdf|MP3|PDF)$)[^.]+$">
+    Require all denied
+</FilesMatch>

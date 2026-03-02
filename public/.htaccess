@@ -1,0 +1,24 @@
+# Kein Directory Listing
+Options -Indexes
+
+# UTF-8
+AddDefaultCharset UTF-8
+
+# MIME-Types für Audio/PDF
+AddType audio/mpeg .mp3
+AddType application/pdf .pdf
+
+# Sicherheits-Header
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Config-Datei nicht direkt abrufbar
+<Files "config.php">
+    Require all denied
+</Files>
+
+# index.php als Standard
+DirectoryIndex index.php

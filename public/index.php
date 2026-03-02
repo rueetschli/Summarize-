@@ -1,14 +1,13 @@
 <?php
 $config = require __DIR__ . '/config.php';
 
-$title       = htmlspecialchars($config['title'] ?? 'Audio & Handout', ENT_QUOTES, 'UTF-8');
+$title       = htmlspecialchars($config['title'] ?? 'Vorlesungs-Zusammenfassungen', ENT_QUOTES, 'UTF-8');
 $subtitle    = htmlspecialchars($config['subtitle'] ?? '', ENT_QUOTES, 'UTF-8');
-$mp3         = htmlspecialchars($config['mp3_path'] ?? '', ENT_QUOTES, 'UTF-8');
-$pdf         = htmlspecialchars($config['pdf_path'] ?? '', ENT_QUOTES, 'UTF-8');
 $dlEnabled   = !empty($config['enable_mp3_download']);
 $uploadOn    = !empty($config['enable_upload']);
 $accent      = htmlspecialchars($config['accent_color'] ?? '#005a8c', ENT_QUOTES, 'UTF-8');
 $footer      = htmlspecialchars($config['footer_text'] ?? '', ENT_QUOTES, 'UTF-8');
+$lectures    = $config['lectures'] ?? [];
 ?><!DOCTYPE html>
 <html lang="de">
 <head>
@@ -28,8 +27,37 @@ $footer      = htmlspecialchars($config['footer_text'] ?? '', ENT_QUOTES, 'UTF-8
             <?php endif; ?>
         </header>
 
+        <?php if (empty($lectures)): ?>
+            <p class="empty-msg">Noch keine Vorlesungen vorhanden.</p>
+        <?php else: ?>
+
+        <!-- Lecture List -->
+        <nav class="lecture-list" aria-label="Vorlesungen">
+            <?php foreach ($lectures as $i => $lec): ?>
+                <button class="lecture-item<?= $i === 0 ? ' is-active' : '' ?>"
+                        data-index="<?= $i ?>"
+                        aria-current="<?= $i === 0 ? 'true' : 'false' ?>">
+                    <span class="lecture-item__number"><?= $i + 1 ?></span>
+                    <span class="lecture-item__info">
+                        <span class="lecture-item__title"><?= htmlspecialchars($lec['title'] ?? 'Vorlesung ' . ($i + 1), ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php if (!empty($lec['date'])): ?>
+                            <span class="lecture-item__date"><?= htmlspecialchars($lec['date'], ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php endif; ?>
+                    </span>
+                    <span class="lecture-item__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="6,3 20,12 6,21" fill="currentColor"/>
+                        </svg>
+                    </span>
+                </button>
+            <?php endforeach; ?>
+        </nav>
+
         <!-- Audio Player -->
         <section class="player" aria-label="Audio-Player">
+            <div class="player__now-playing" id="nowPlaying">
+                <?= htmlspecialchars($lectures[0]['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>
+            </div>
             <div class="player__status" id="playerStatus">Audio wird geladen…</div>
 
             <!-- Waveform / Progress -->
@@ -48,6 +76,12 @@ $footer      = htmlspecialchars($config['footer_text'] ?? '', ENT_QUOTES, 'UTF-8
 
             <!-- Controls -->
             <div class="player__controls">
+                <button class="btn btn--icon" id="btnPrev" aria-label="Vorherige Vorlesung" title="Vorherige Vorlesung">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
+                    </svg>
+                </button>
+
                 <button class="btn btn--icon" id="btnBack15" aria-label="15 Sekunden zurück" title="15 s zurück">
                     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
@@ -68,6 +102,12 @@ $footer      = htmlspecialchars($config['footer_text'] ?? '', ENT_QUOTES, 'UTF-8
                     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/>
                         <text x="12" y="16" text-anchor="middle" fill="currentColor" stroke="none" font-size="7" font-weight="bold">15</text>
+                    </svg>
+                </button>
+
+                <button class="btn btn--icon" id="btnNext" aria-label="Nächste Vorlesung" title="Nächste Vorlesung">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
                     </svg>
                 </button>
             </div>
@@ -91,26 +131,12 @@ $footer      = htmlspecialchars($config['footer_text'] ?? '', ENT_QUOTES, 'UTF-8
             </div>
 
             <!-- Download buttons -->
-            <div class="player__actions">
-                <?php if ($dlEnabled): ?>
-                    <a href="<?= $mp3 ?>" download class="btn btn--action" aria-label="MP3 herunterladen">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        MP3 herunterladen
-                    </a>
-                <?php endif; ?>
-
-                <?php if ($pdf): ?>
-                    <a href="<?= $pdf ?>" download class="btn btn--action btn--accent" aria-label="Handout herunterladen">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-                        </svg>
-                        Handout herunterladen
-                    </a>
-                <?php endif; ?>
+            <div class="player__actions" id="playerActions">
+                <!-- Filled dynamically by JS -->
             </div>
         </section>
+
+        <?php endif; ?>
 
         <?php if ($uploadOn): ?>
             <p class="admin-link"><a href="admin/upload.php">Admin: Dateien hochladen</a></p>
@@ -120,8 +146,17 @@ $footer      = htmlspecialchars($config['footer_text'] ?? '', ENT_QUOTES, 'UTF-8
     </div>
 
     <script>
-        // MP3-Pfad für den Player bereitstellen
-        window.PLAYER_CONFIG = { mp3: <?= json_encode($config['mp3_path'] ?? '') ?> };
+        window.PLAYER_CONFIG = {
+            lectures: <?= json_encode(array_map(function ($lec) {
+                return [
+                    'title'    => $lec['title'] ?? '',
+                    'mp3_path' => $lec['mp3_path'] ?? '',
+                    'pdf_path' => $lec['pdf_path'] ?? '',
+                    'date'     => $lec['date'] ?? '',
+                ];
+            }, $lectures)) ?>,
+            enableDownload: <?= json_encode($dlEnabled) ?>
+        };
     </script>
     <script src="js/player.js"></script>
 </body>

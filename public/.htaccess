@@ -6,6 +6,7 @@ AddDefaultCharset UTF-8
 
 # MIME-Types für Audio/PDF
 AddType audio/mpeg .mp3
+AddType audio/mp4 .m4a
 AddType application/pdf .pdf
 
 # Sicherheits-Header

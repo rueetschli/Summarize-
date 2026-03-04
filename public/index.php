@@ -2,10 +2,11 @@
 $config = require __DIR__ . '/config.php';
 
 $title       = htmlspecialchars($config['title'] ?? 'Vorlesungs-Zusammenfassungen', ENT_QUOTES, 'UTF-8');
+$className   = htmlspecialchars($config['class_name'] ?? '', ENT_QUOTES, 'UTF-8');
 $subtitle    = htmlspecialchars($config['subtitle'] ?? '', ENT_QUOTES, 'UTF-8');
-$dlEnabled   = !empty($config['enable_mp3_download']);
+$dlEnabled   = !empty($config['enable_audio_download'] ?? $config['enable_mp3_download'] ?? false);
 $uploadOn    = !empty($config['enable_upload']);
-$accent      = htmlspecialchars($config['accent_color'] ?? '#005a8c', ENT_QUOTES, 'UTF-8');
+$accent      = htmlspecialchars($config['accent_color'] ?? '#6366f1', ENT_QUOTES, 'UTF-8');
 $footer      = htmlspecialchars($config['footer_text'] ?? '', ENT_QUOTES, 'UTF-8');
 $lectures    = $config['lectures'] ?? [];
 ?><!DOCTYPE html>
@@ -15,48 +16,69 @@ $lectures    = $config['lectures'] ?? [];
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $title ?></title>
     <link rel="stylesheet" href="css/styles.css">
-    <style>:root{--accent:<?= $accent ?>;--accent-light:<?= $accent ?>22;}</style>
+    <style>:root{--accent:<?= $accent ?>;--accent-light:<?= $accent ?>22;--accent-glow:<?= $accent ?>44;}</style>
 </head>
 <body>
+    <div class="bg-effects" aria-hidden="true">
+        <div class="bg-orb bg-orb--1"></div>
+        <div class="bg-orb bg-orb--2"></div>
+        <div class="bg-orb bg-orb--3"></div>
+    </div>
+
     <div class="container" role="main">
-        <!-- Header -->
-        <header class="header">
-            <h1 class="header__title"><?= $title ?></h1>
+        <!-- Hero Header -->
+        <header class="hero">
+            <div class="hero__badge"><?= $className ?></div>
+            <h1 class="hero__title"><?= $title ?></h1>
             <?php if ($subtitle): ?>
-                <p class="header__subtitle"><?= $subtitle ?></p>
+                <p class="hero__subtitle"><?= $subtitle ?></p>
             <?php endif; ?>
         </header>
 
         <?php if (empty($lectures)): ?>
-            <p class="empty-msg">Noch keine Vorlesungen vorhanden.</p>
+            <p class="empty-msg">Noch keine Module vorhanden.</p>
         <?php else: ?>
 
-        <!-- Lecture List -->
-        <nav class="lecture-list" aria-label="Vorlesungen">
-            <?php foreach ($lectures as $i => $lec): ?>
-                <button class="lecture-item<?= $i === 0 ? ' is-active' : '' ?>"
-                        data-index="<?= $i ?>"
-                        aria-current="<?= $i === 0 ? 'true' : 'false' ?>">
-                    <span class="lecture-item__number"><?= $i + 1 ?></span>
-                    <span class="lecture-item__info">
-                        <span class="lecture-item__title"><?= htmlspecialchars($lec['title'] ?? 'Vorlesung ' . ($i + 1), ENT_QUOTES, 'UTF-8') ?></span>
-                        <?php if (!empty($lec['date'])): ?>
-                            <span class="lecture-item__date"><?= htmlspecialchars($lec['date'], ENT_QUOTES, 'UTF-8') ?></span>
-                        <?php endif; ?>
-                    </span>
-                    <span class="lecture-item__icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="6,3 20,12 6,21" fill="currentColor"/>
-                        </svg>
-                    </span>
-                </button>
-            <?php endforeach; ?>
-        </nav>
+        <!-- Module Selection -->
+        <section class="module-section">
+            <h2 class="section-label">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                </svg>
+                Modul wählen
+            </h2>
+            <nav class="module-list" aria-label="Module">
+                <?php foreach ($lectures as $i => $lec): ?>
+                    <button class="module-card<?= $i === 0 ? ' is-active' : '' ?>"
+                            data-index="<?= $i ?>"
+                            aria-current="<?= $i === 0 ? 'true' : 'false' ?>">
+                        <span class="module-card__index"><?= $i + 1 ?></span>
+                        <span class="module-card__body">
+                            <span class="module-card__title"><?= htmlspecialchars($lec['title'] ?? 'Modul ' . ($i + 1), ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php if (!empty($lec['date'])): ?>
+                                <span class="module-card__meta"><?= htmlspecialchars($lec['date'], ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php endif; ?>
+                        </span>
+                        <span class="module-card__arrow" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </span>
+                    </button>
+                <?php endforeach; ?>
+            </nav>
+        </section>
 
         <!-- Audio Player -->
         <section class="player" aria-label="Audio-Player">
-            <div class="player__now-playing" id="nowPlaying">
-                <?= htmlspecialchars($lectures[0]['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>
+            <div class="player__header">
+                <div class="player__visualizer" id="visualizer" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <div class="player__now-playing" id="nowPlaying">
+                    <?= htmlspecialchars($lectures[0]['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>
+                </div>
             </div>
             <div class="player__status" id="playerStatus">Audio wird geladen…</div>
 
@@ -76,7 +98,7 @@ $lectures    = $config['lectures'] ?? [];
 
             <!-- Controls -->
             <div class="player__controls">
-                <button class="btn btn--icon" id="btnPrev" aria-label="Vorherige Vorlesung" title="Vorherige Vorlesung">
+                <button class="btn btn--icon" id="btnPrev" aria-label="Vorheriges Modul" title="Vorheriges Modul">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                         <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/>
                     </svg>
@@ -105,7 +127,7 @@ $lectures    = $config['lectures'] ?? [];
                     </svg>
                 </button>
 
-                <button class="btn btn--icon" id="btnNext" aria-label="Nächste Vorlesung" title="Nächste Vorlesung">
+                <button class="btn btn--icon" id="btnNext" aria-label="Nächstes Modul" title="Nächstes Modul">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                         <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
                     </svg>
@@ -149,10 +171,10 @@ $lectures    = $config['lectures'] ?? [];
         window.PLAYER_CONFIG = {
             lectures: <?= json_encode(array_map(function ($lec) {
                 return [
-                    'title'    => $lec['title'] ?? '',
-                    'mp3_path' => $lec['mp3_path'] ?? '',
-                    'pdf_path' => $lec['pdf_path'] ?? '',
-                    'date'     => $lec['date'] ?? '',
+                    'title'      => $lec['title'] ?? '',
+                    'audio_path' => $lec['audio_path'] ?? $lec['mp3_path'] ?? '',
+                    'pdf_path'   => $lec['pdf_path'] ?? '',
+                    'date'       => $lec['date'] ?? '',
                 ];
             }, $lectures)) ?>,
             enableDownload: <?= json_encode($dlEnabled) ?>

@@ -18,6 +18,6 @@
 Options -Indexes
 
 # Nur erlaubte Dateitypen ausliefern
-<FilesMatch "\.(?!(mp3|pdf|MP3|PDF)$)[^.]+$">
+<FilesMatch "\.(?!(mp3|m4a|pdf|MP3|M4A|PDF)$)[^.]+$">
     Require all denied
 </FilesMatch>

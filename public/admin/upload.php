@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin Upload – MP3 und PDF hochladen
+ * Admin Upload – MP3 und PDF für einzelne Vorlesungen hochladen
  * Session-basierte Passwort-Authentifizierung
  */
 session_start();
@@ -18,6 +18,7 @@ $maxMb      = (int)($config['max_upload_mb'] ?? 50);
 $maxBytes   = $maxMb * 1024 * 1024;
 $uploadDir  = dirname(__DIR__) . '/assets/uploads/';
 $accent     = htmlspecialchars($config['accent_color'] ?? '#005a8c', ENT_QUOTES, 'UTF-8');
+$lectures   = $config['lectures'] ?? [];
 
 $error   = '';
 $success = '';
@@ -42,68 +43,76 @@ if (!$loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['passwor
 }
 
 // ── Upload verarbeiten ──────────────────────────────────────
-if ($loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES)) {
+if ($loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lecture_index'])) {
+    $lectureIndex = (int)$_POST['lecture_index'];
 
-    // CSRF-einfach: Referrer prüfen (für Shared Hosting ausreichend)
-    $allowed = [
-        'mp3' => ['audio/mpeg', 'audio/mp3'],
-        'pdf' => ['application/pdf'],
-    ];
+    if ($lectureIndex < 0 || $lectureIndex >= count($lectures)) {
+        $error = 'Ungültige Vorlesung gewählt.';
+    } else {
+        $allowed = [
+            'mp3' => ['audio/mpeg', 'audio/mp3'],
+            'pdf' => ['application/pdf'],
+        ];
 
-    $targets = [
-        'mp3' => 'latest.mp3',
-        'pdf' => 'handout.pdf',
-    ];
+        $lec = $lectures[$lectureIndex];
+        $targets = [
+            'mp3' => basename($lec['mp3_path'] ?? ''),
+            'pdf' => basename($lec['pdf_path'] ?? ''),
+        ];
 
-    $uploaded = [];
+        $uploaded = [];
 
-    foreach (['mp3', 'pdf'] as $key) {
-        $field = 'file_' . $key;
-        if (empty($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
-            continue;
+        foreach (['mp3', 'pdf'] as $key) {
+            $field = 'file_' . $key;
+            if (empty($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            if (empty($targets[$key])) {
+                continue;
+            }
+
+            $file = $_FILES[$field];
+
+            // Upload-Fehler
+            if ($file['error'] !== UPLOAD_ERR_OK) {
+                $error .= strtoupper($key) . ': Upload-Fehler (Code ' . $file['error'] . '). ';
+                continue;
+            }
+
+            // Dateigrösse
+            if ($file['size'] > $maxBytes) {
+                $error .= strtoupper($key) . ': Datei zu gross (max ' . $maxMb . ' MB). ';
+                continue;
+            }
+
+            // MIME prüfen
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($file['tmp_name']);
+            if (!in_array($mime, $allowed[$key], true)) {
+                $error .= strtoupper($key) . ': Ungültiger Dateityp (' . htmlspecialchars($mime) . '). ';
+                continue;
+            }
+
+            // Zielverzeichnis erstellen
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+
+            $dest = $uploadDir . $targets[$key];
+
+            if (!move_uploaded_file($file['tmp_name'], $dest)) {
+                $error .= strtoupper($key) . ': Konnte Datei nicht speichern. ';
+                continue;
+            }
+
+            $uploaded[] = $targets[$key];
         }
 
-        $file = $_FILES[$field];
-
-        // Upload-Fehler
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            $error .= strtoupper($key) . ': Upload-Fehler (Code ' . $file['error'] . '). ';
-            continue;
+        if (!empty($uploaded) && $error === '') {
+            $success = 'Hochgeladen für «' . htmlspecialchars($lec['title'] ?? 'Vorlesung', ENT_QUOTES, 'UTF-8') . '»: ' . implode(', ', $uploaded);
+        } elseif (!empty($uploaded)) {
+            $success = 'Teilweise hochgeladen: ' . implode(', ', $uploaded);
         }
-
-        // Dateigrösse
-        if ($file['size'] > $maxBytes) {
-            $error .= strtoupper($key) . ': Datei zu gross (max ' . $maxMb . ' MB). ';
-            continue;
-        }
-
-        // MIME prüfen
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mime = $finfo->file($file['tmp_name']);
-        if (!in_array($mime, $allowed[$key], true)) {
-            $error .= strtoupper($key) . ': Ungültiger Dateityp (' . htmlspecialchars($mime) . '). ';
-            continue;
-        }
-
-        // Zielverzeichnis erstellen
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
-        $dest = $uploadDir . $targets[$key];
-
-        if (!move_uploaded_file($file['tmp_name'], $dest)) {
-            $error .= strtoupper($key) . ': Konnte Datei nicht speichern. ';
-            continue;
-        }
-
-        $uploaded[] = $targets[$key];
-    }
-
-    if (!empty($uploaded) && $error === '') {
-        $success = 'Hochgeladen: ' . implode(', ', $uploaded);
-    } elseif (!empty($uploaded)) {
-        $success = 'Teilweise hochgeladen: ' . implode(', ', $uploaded);
     }
 }
 ?><!DOCTYPE html>
@@ -119,14 +128,14 @@ if ($loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES)) {
     <div class="container" role="main">
         <header class="header">
             <h1 class="header__title">Dateien hochladen</h1>
-            <p class="header__subtitle">MP3 und PDF aktualisieren</p>
+            <p class="header__subtitle">MP3 und PDF für Vorlesungen aktualisieren</p>
         </header>
 
         <?php if ($error): ?>
-            <div class="alert alert--err"><?= htmlspecialchars($error) ?></div>
+            <div class="alert alert--err"><?= $error ?></div>
         <?php endif; ?>
         <?php if ($success): ?>
-            <div class="alert alert--ok"><?= htmlspecialchars($success) ?></div>
+            <div class="alert alert--ok"><?= $success ?></div>
         <?php endif; ?>
 
         <?php if (!$loggedIn): ?>
@@ -144,9 +153,18 @@ if ($loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES)) {
         <?php else: ?>
             <!-- Upload Form -->
             <div class="upload-card">
-                <h2>Dateien auswählen</h2>
+                <h2>Vorlesung wählen & Dateien hochladen</h2>
                 <form method="post" enctype="multipart/form-data">
                     <input type="hidden" name="MAX_FILE_SIZE" value="<?= $maxBytes ?>">
+
+                    <div class="form-group">
+                        <label for="lecture_index">Vorlesung</label>
+                        <select id="lecture_index" name="lecture_index" required>
+                            <?php foreach ($lectures as $i => $lec): ?>
+                                <option value="<?= $i ?>"><?= htmlspecialchars($lec['title'] ?? 'Vorlesung ' . ($i + 1), ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
                     <div class="form-group">
                         <label for="file_mp3">Audio (MP3, max <?= $maxMb ?> MB)</label>

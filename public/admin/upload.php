@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin Upload – MP3 und PDF für einzelne Vorlesungen hochladen
+ * Admin Upload – Audio (MP3/M4A) und PDF für einzelne Module hochladen
  * Session-basierte Passwort-Authentifizierung
  */
 session_start();
@@ -17,7 +17,7 @@ $password   = $config['upload_password'] ?? '';
 $maxMb      = (int)($config['max_upload_mb'] ?? 50);
 $maxBytes   = $maxMb * 1024 * 1024;
 $uploadDir  = dirname(__DIR__) . '/assets/uploads/';
-$accent     = htmlspecialchars($config['accent_color'] ?? '#005a8c', ENT_QUOTES, 'UTF-8');
+$accent     = htmlspecialchars($config['accent_color'] ?? '#6366f1', ENT_QUOTES, 'UTF-8');
 $lectures   = $config['lectures'] ?? [];
 
 $error   = '';
@@ -47,22 +47,23 @@ if ($loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lecture_
     $lectureIndex = (int)$_POST['lecture_index'];
 
     if ($lectureIndex < 0 || $lectureIndex >= count($lectures)) {
-        $error = 'Ungültige Vorlesung gewählt.';
+        $error = 'Ungültiges Modul gewählt.';
     } else {
         $allowed = [
-            'mp3' => ['audio/mpeg', 'audio/mp3'],
-            'pdf' => ['application/pdf'],
+            'audio' => ['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac'],
+            'pdf'   => ['application/pdf'],
         ];
 
         $lec = $lectures[$lectureIndex];
+        $audioPath = $lec['audio_path'] ?? $lec['mp3_path'] ?? '';
         $targets = [
-            'mp3' => basename($lec['mp3_path'] ?? ''),
-            'pdf' => basename($lec['pdf_path'] ?? ''),
+            'audio' => basename($audioPath),
+            'pdf'   => basename($lec['pdf_path'] ?? ''),
         ];
 
         $uploaded = [];
 
-        foreach (['mp3', 'pdf'] as $key) {
+        foreach (['audio', 'pdf'] as $key) {
             $field = 'file_' . $key;
             if (empty($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
                 continue;
@@ -109,7 +110,7 @@ if ($loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lecture_
         }
 
         if (!empty($uploaded) && $error === '') {
-            $success = 'Hochgeladen für «' . htmlspecialchars($lec['title'] ?? 'Vorlesung', ENT_QUOTES, 'UTF-8') . '»: ' . implode(', ', $uploaded);
+            $success = 'Hochgeladen für «' . htmlspecialchars($lec['title'] ?? 'Modul', ENT_QUOTES, 'UTF-8') . '»: ' . implode(', ', $uploaded);
         } elseif (!empty($uploaded)) {
             $success = 'Teilweise hochgeladen: ' . implode(', ', $uploaded);
         }
@@ -122,13 +123,13 @@ if ($loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lecture_
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin – Upload</title>
     <link rel="stylesheet" href="../css/styles.css">
-    <style>:root{--accent:<?= $accent ?>;--accent-light:<?= $accent ?>22;}</style>
+    <style>:root{--accent:<?= $accent ?>;--accent-light:<?= $accent ?>22;--accent-glow:<?= $accent ?>44;}</style>
 </head>
 <body>
     <div class="container" role="main">
         <header class="header">
             <h1 class="header__title">Dateien hochladen</h1>
-            <p class="header__subtitle">MP3 und PDF für Vorlesungen aktualisieren</p>
+            <p class="header__subtitle">Audio (MP3/M4A) und PDF für Module aktualisieren</p>
         </header>
 
         <?php if ($error): ?>
@@ -153,22 +154,22 @@ if ($loggedIn && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lecture_
         <?php else: ?>
             <!-- Upload Form -->
             <div class="upload-card">
-                <h2>Vorlesung wählen & Dateien hochladen</h2>
+                <h2>Modul wählen & Dateien hochladen</h2>
                 <form method="post" enctype="multipart/form-data">
                     <input type="hidden" name="MAX_FILE_SIZE" value="<?= $maxBytes ?>">
 
                     <div class="form-group">
-                        <label for="lecture_index">Vorlesung</label>
+                        <label for="lecture_index">Modul</label>
                         <select id="lecture_index" name="lecture_index" required>
                             <?php foreach ($lectures as $i => $lec): ?>
-                                <option value="<?= $i ?>"><?= htmlspecialchars($lec['title'] ?? 'Vorlesung ' . ($i + 1), ENT_QUOTES, 'UTF-8') ?></option>
+                                <option value="<?= $i ?>"><?= htmlspecialchars($lec['title'] ?? 'Modul ' . ($i + 1), ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label for="file_mp3">Audio (MP3, max <?= $maxMb ?> MB)</label>
-                        <input type="file" id="file_mp3" name="file_mp3" accept=".mp3,audio/mpeg">
+                        <label for="file_audio">Audio (MP3 oder M4A, max <?= $maxMb ?> MB)</label>
+                        <input type="file" id="file_audio" name="file_audio" accept=".mp3,.m4a,audio/mpeg,audio/mp4">
                     </div>
 
                     <div class="form-group">

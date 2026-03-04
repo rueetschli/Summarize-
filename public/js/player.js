@@ -1,6 +1,6 @@
 /**
  * Multi-Lecture Audio-Player – Vanilla JS
- * Play/Pause, Seek, Volume, Mute, ±15 s, Prev/Next, Lecture switching
+ * Supports MP3 & M4A · Module-based · Play/Pause, Seek, Volume, Mute, ±15 s, Prev/Next
  */
 (function () {
     'use strict';
@@ -36,7 +36,8 @@
     var iconMute    = document.getElementById('iconMute');
     var volumeSlider= document.getElementById('volumeSlider');
     var actionsWrap = document.getElementById('playerActions');
-    var lectureItems= document.querySelectorAll('.lecture-item');
+    var moduleCards = document.querySelectorAll('.module-card');
+    var visualizer  = document.getElementById('visualizer');
 
     // ── Audio element ─────────────────────────────────────────
     var audio = new Audio();
@@ -67,6 +68,14 @@
         return d.innerHTML;
     }
 
+    function getAudioLabel(path) {
+        if (!path) return 'Audio';
+        var ext = path.split('.').pop().toLowerCase();
+        if (ext === 'm4a') return 'M4A';
+        if (ext === 'mp3') return 'MP3';
+        return 'Audio';
+    }
+
     // ── Status / Error ────────────────────────────────────────
     function showStatus(msg, isError) {
         status.textContent = msg;
@@ -77,16 +86,27 @@
         status.className = 'player__status is-ready';
     }
 
+    // ── Visualizer ──────────────────────────────────────────
+    function setVisualizerPlaying(playing) {
+        if (!visualizer) return;
+        if (playing) {
+            visualizer.classList.add('is-playing');
+        } else {
+            visualizer.classList.remove('is-playing');
+        }
+    }
+
     // ── Lecture switching ─────────────────────────────────────
     function loadLecture(index, autoplay) {
         if (index < 0 || index >= lectures.length) return;
 
         currentIndex = index;
         var lec = lectures[index];
+        var audioPath = lec.audio_path || lec.mp3_path || '';
 
         // Update active state in list
-        for (var i = 0; i < lectureItems.length; i++) {
-            var item = lectureItems[i];
+        for (var i = 0; i < moduleCards.length; i++) {
+            var item = moduleCards[i];
             if (i === index) {
                 item.classList.add('is-active');
                 item.setAttribute('aria-current', 'true');
@@ -108,20 +128,22 @@
         // Show loading
         showStatus('Audio wird geladen…');
 
-        // Load audio
-        audio.src = lec.mp3_path;
+        // Load audio (supports both mp3 and m4a)
+        audio.src = audioPath;
         audio.load();
 
         // Reset play icon
         iconPlay.classList.remove('hidden');
         iconPause.classList.add('hidden');
         btnPlay.setAttribute('aria-label', 'Abspielen');
+        setVisualizerPlaying(false);
 
         if (autoplay) {
             audio.play().then(function () {
                 iconPlay.classList.add('hidden');
                 iconPause.classList.remove('hidden');
                 btnPlay.setAttribute('aria-label', 'Pause');
+                setVisualizerPlaying(true);
             }).catch(function () {});
         }
 
@@ -135,11 +157,14 @@
 
     function updateActions(lec) {
         var html = '';
-        if (enableDownload && lec.mp3_path) {
-            html += '<a href="' + escHtml(lec.mp3_path) + '" download class="btn btn--action" aria-label="MP3 herunterladen">' +
+        var audioPath = lec.audio_path || lec.mp3_path || '';
+        var audioLabel = getAudioLabel(audioPath);
+
+        if (enableDownload && audioPath) {
+            html += '<a href="' + escHtml(audioPath) + '" download class="btn btn--action" aria-label="' + audioLabel + ' herunterladen">' +
                 '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                 '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' +
-                '</svg> MP3 herunterladen</a>';
+                '</svg> ' + audioLabel + ' herunterladen</a>';
         }
         if (lec.pdf_path) {
             html += '<a href="' + escHtml(lec.pdf_path) + '" download class="btn btn--action btn--accent" aria-label="Handout herunterladen">' +
@@ -175,6 +200,7 @@
             }
         }
         showStatus(msg, true);
+        setVisualizerPlaying(false);
     });
 
     // ── Events: Time / Progress ───────────────────────────────
@@ -192,7 +218,8 @@
     });
 
     audio.addEventListener('ended', function () {
-        // Auto-advance to next lecture
+        setVisualizerPlaying(false);
+        // Auto-advance to next module
         if (currentIndex < lectures.length - 1) {
             loadLecture(currentIndex + 1, true);
         } else {
@@ -209,11 +236,13 @@
             iconPlay.classList.add('hidden');
             iconPause.classList.remove('hidden');
             btnPlay.setAttribute('aria-label', 'Pause');
+            setVisualizerPlaying(true);
         } else {
             audio.pause();
             iconPlay.classList.remove('hidden');
             iconPause.classList.add('hidden');
             btnPlay.setAttribute('aria-label', 'Abspielen');
+            setVisualizerPlaying(false);
         }
     }
     btnPlay.addEventListener('click', togglePlay);
@@ -226,9 +255,9 @@
         if (currentIndex < lectures.length - 1) loadLecture(currentIndex + 1, true);
     });
 
-    // ── Lecture list clicks ───────────────────────────────────
-    for (var j = 0; j < lectureItems.length; j++) {
-        lectureItems[j].addEventListener('click', function () {
+    // ── Module card clicks ──────────────────────────────────
+    for (var j = 0; j < moduleCards.length; j++) {
+        moduleCards[j].addEventListener('click', function () {
             var idx = parseInt(this.getAttribute('data-index'), 10);
             if (idx !== currentIndex) {
                 loadLecture(idx, true);
@@ -326,6 +355,6 @@
         }
     });
 
-    // ── Init: load first lecture ──────────────────────────────
+    // ── Init: load first module ──────────────────────────────
     loadLecture(0, false);
 })();
